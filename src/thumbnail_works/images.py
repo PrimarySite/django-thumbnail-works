@@ -113,7 +113,7 @@ class ImageProcessor:
         
         """
         if not name:
-            raise ThumbnailWorksError('The provided name is not usable: "%s"')
+            raise ThumbnailWorksError('The provided name is not usable')
         root_dir = os.path.dirname(name)  # images
         filename = os.path.basename(name)    # photo.jpg
         base_filename, default_ext = os.path.splitext(filename)
