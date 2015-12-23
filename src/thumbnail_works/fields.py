@@ -35,16 +35,16 @@ from thumbnail_works.images import ImageProcessor
 
 class BaseThumbnailFieldFile(ImageFieldFile):
     """A derived class of Django's ImageFieldFile for thumbnails.
-    
+
     Note that this class cannot be used on its own, but also requires
     ``thumbnail_works.images.ImageProcessor`` or a derived class to
     provide the image processing methods.
-    
+
     """
-        
+
     def __init__(self, instance, field, source, name, identifier, proc_opts):
         """Constructor
-        
+
         ``instance``
             The instance of the model that contains the ``EnhancedImageField``.
         ``field``
@@ -59,63 +59,63 @@ class BaseThumbnailFieldFile(ImageFieldFile):
         ``proc_opts``
             image processing options for this thumbnail as set in the
             ``thumbnails`` dictionary.
-        
+
         The ``name`` attribute cannot be empty. By default, ``name`` contains
         a path relative to MEDIA_ROOT, eg: ``myimages/image1.png`` and is
         mandatory in order to have thumbnail management.
-        
+
         """
         if not name:
             raise ThumbnailWorksError('The provided name is not usable: "%s"')
-        
+
         # Set the thumbnail identifier
         self.identifier = self.get_identifier(identifier)
         # Set the image processing options for this image (thumbnail)
         self.setup_image_processing_options(proc_opts)
         self.source = source
-        
+
         # Get a proper thumbnail name (relative path to MEDIA_ROOT)
         name = self.generate_image_name(name=name)
-        # self.name is set by the following 
+        # self.name is set by the following
         super(BaseThumbnailFieldFile, self).__init__(instance, field, name)
-    
+
     def get_identifier(self, identifier):
         if not isinstance(identifier, str):
             raise ThumbnailOptionError('The identifier must be a string')
         elif identifier == '':
             raise ThumbnailOptionError('The identifier must be set to something on thumbnails')
         return identifier.replace(' ', '_')
-    
+
     def save(self, source_content=None):
         """Saves the thumbnail file.
-        
+
         ``source_content``
             The image data of the source image
-        
+
         Also sets the current object (thumbnail) as an attribute of the
         source image's ImageFieldFile.
-        
+
         """
         if source_content is None:
             source_content = self.source.get_image_content()
-            
+
         thumbnail_content = self.process_image(source_content)
         self.name = self.storage.save(self.name, thumbnail_content)
-        
+
         # Set the thumbnail as an attribute of the source image's ImageFieldFile
         setattr(self.source, self.identifier, self)
 
         # Update the filesize cache
         self._size = len(thumbnail_content)
-        
+
         self._committed = True
 
     def delete(self):
         """Deletes the thumbnail file.
-        
+
         Also deletes the current object (thumbnail) from source image's
         ImageFieldFile object.
-        
+
         """
         # Only close the file if it's already open, which we know by the
         # presence of self._file
@@ -126,7 +126,7 @@ class BaseThumbnailFieldFile(ImageFieldFile):
         self.storage.delete(self.name)
 
         self.name = None
-        
+
         # Clear the thumbnail attribute on the source image file
         if hasattr(self.source, self.identifier):
             delattr(self.source, self.identifier)
@@ -134,11 +134,11 @@ class BaseThumbnailFieldFile(ImageFieldFile):
         # Clear the image dimensions cache
         if hasattr(self, '_dimensions_cache'):
             del self._dimensions_cache
-        
+
         # Delete the filesize cache
         if hasattr(self, '_size'):
             del self._size
-        
+
         self._committed = False
 
 
@@ -149,13 +149,13 @@ class ThumbnailFieldFile(BaseThumbnailFieldFile, ImageProcessor):
 
 class BaseEnhancedImageFieldFile(ImageFieldFile):
     """Enhanced version of the default ImageFieldFile for the source image.
-    
+
     Note that this class cannot be used on its own, but also requires
     ``thumbnail_works.images.ImageProcessor`` or a derived class to
     provide the image processing methods.
-    
+
     The BaseEnhancedImageFieldFile supports:
-    
+
     - resizing the original image before saving it to the specified storage.
     - generating thumbnails of the original image on the same storage:
         - immediately after the original image is uploaded.
@@ -163,12 +163,12 @@ class BaseEnhancedImageFieldFile(ImageFieldFile):
     - deleting the previously generated thumbnails from the specified storage.
     - a mechanism of accessing the thumbnails as attributes of the model's
       EnhancedImageField.
-    
+
     """
-    
+
     def __init__(self, instance, field, name):
         """Constructor
-        
+
         ``instance``
             The instance of the model that contains the ``EnhancedImageField``.
         ``field``
@@ -176,13 +176,13 @@ class BaseEnhancedImageFieldFile(ImageFieldFile):
         ``name``
             the path of the file including the relative path from MEDIA_ROOT
             and the actual filename.
-        
+
         Note that the ``name`` attribute is re-set to the name (relative path)
         of the image on the storage once the ``save()`` method has been called.
-        
+
         The following ``BaseEnhancedImageFieldFile`` instance attributes are
         set by ``ImageFieldFile.__init__()``:
-         
+
         ``storage``
             The ``storage`` attribute of the EnhancedImageField instance.
         ``_committed``
@@ -190,40 +190,40 @@ class BaseEnhancedImageFieldFile(ImageFieldFile):
             has been committed to the database and therefore saved to the
             storage or the file has been deleted from the database and therefore
             deleted from the filesystem.
-        
+
         Thumbnails are set as attributes of the ``BaseEnhancedImageFieldFile``
         object (source image) only if they exist on the storage.
-        
+
         If the thumbnail files are not found on the storage at this time, they
         will be generated the first time they are accessed regardless of the
         THUMBNAILS_DELAYED_GENERATION ``setting``.
-        
+
         """
         # Set the identifier to None. Only thumbnails have an identifier attribute
         self.identifier = None
         # Set the image processing options for this image (source image)
         self.setup_image_processing_options(field.process_source)
-        
+
         # Among others, also sets ``self.name``
         super(BaseEnhancedImageFieldFile, self).__init__(instance, field, name)
-        
+
         # Set thumbnail objects as attributes.
         if self._verify_thumbnail_requirements():
             for identifier, proc_opts in self.field.thumbnails.items():
                 t = ThumbnailFieldFile(self.instance, self.field, self, self.name, identifier, proc_opts)
                 if self.storage.exists(t.name):
                     setattr(self, identifier, t)
-    
+
     def _verify_thumbnail_requirements(self):
         """This function performs a series of checks to ensure flawless
         thumbnail access, generation and management. It is a safety mechanism.
-        
+
         Before using instanciating ``ThumbnailFieldFile`` you should run
         this check. For example:
-        
+
             if self._verify_thumbnail_requirements():
                 t = ThumbnailFieldFile(...)
-        
+
         """
         if not self._committed:
             # TODO: documentation for this check
@@ -237,92 +237,93 @@ class BaseEnhancedImageFieldFile(ImageFieldFile):
             # has been set. A 'name' is required for thumbnail management.
             return False
         return True
-        
-    def __getattr__(self, attribute):
-        """Retrieves any ``BaseEnhancedImageFieldFile`` instance attribute.
-        
-        If a thumbnail attribute is requested, but it has not been set as
-        an ``BaseEnhancedImageFieldFile`` instance attribute, then:
-        
-        1. Generate the thumbnail
-        2. Set it as an ``BaseEnhancedImageFieldFile`` instance attribute
-        
-        Developer Notes
-        
-        Here we use the ``BaseEnhancedImageFieldFile`` instance's __dict__ in
-        order to check or set the instance's attributes so as to avoid
-        triggering a recursive call to this function.
-        
-        A good write-up on this exists at:  http://bit.ly/c2JL8H
-        
-        """
-        if not self.__dict__.has_key(attribute):
-            # Proceed to thumbnail generation only if a *thumbnail* attribute
-            # is requested
-            if self.field.thumbnails.has_key(attribute):
-                # Generate thumbnail
-                self._require_file()    # TODO: document this
-                if self._verify_thumbnail_requirements():
-                    proc_opts = self.field.thumbnails[attribute]
-                    t = ThumbnailFieldFile(self.instance, self.field, self, self.name, attribute, proc_opts)
-                    t.save()
-                    assert self.__dict__[attribute] == t, \
-                        Exception('Thumbnail attribute `%s` not set' % attribute)
-        return self.__dict__[attribute]
-    
+
+    def get_thumbnails(self, attribute):
+        if self.field.thumbnails.get(attribute, False):
+            self._require_file()
+            if self._verify_thumbnail_requirements():
+                proc_opts = self.field.thumbnails[attribute]
+                t = ThumbnailFieldFile(self.instance, self.field, self, self.name, attribute, proc_opts)
+                t.save()
+                assert self.__dict__[attribute] == t, Exception(
+                    'Thumbnail attributes `{}` not set'.format(attribute))
+        return getattr(self, attribute)
+
+    @property
+    def thumbnails(self):
+
+        class Placeholder(object):
+            pass
+
+        if hasattr(self, '_thumbnails_cache'):
+            return self._thumbnails_cache
+
+        self._thumbnails_cache = Placeholder()
+        self._require_file()
+
+        if self._verify_thumbnail_requirements():
+            for attribute in self.field.thumbnails.keys():
+                proc_opts = self.field.thumbnails[attribute]
+                t = ThumbnailFieldFile(self.instance, self.field, self, self.name, attribute, proc_opts)
+                t.save()
+                assert self.__dict__[attribute] == t, Exception(
+                    'Thumbnail attributes `{}` not set'.format(attribute))
+                setattr(self._thumbnails_cache, attribute, t)
+        return self._thumbnails_cache
+
     def save(self, name, content, save=True):
         """Saves the source image and generates thumbnails.
-        
+
         ``name``
             The name of the file including the relative path from MEDIA_ROOT.
         ``content``
             The file data.
-        
+
         If the image processing options have been set, then the source image
         is processed before it is finally saved to the storage.
-        
+
         After the source file is saved, if the ``THUMBNAILS_DELAYED_GENERATION``
         setting has been enabled, no thumbnails are generated. The thumbnails
         will be generated the first time they are accessed.
-        
+
         If ``THUMBNAILS_DELAYED_GENERATION`` is set to False, then all thumbnails
         are generated as soon as the source image is saved.
-        
+
         """
-        
+
         # Resize the source image if image processing options have been set
         if self.proc_opts is not None:
             content = self.process_image(content)
             # The following sets the correct filename extension according
-            # to the image format. 
+            # to the image format.
             name = self.generate_image_name(name=name)
-        
+
         # Save the source image on the storage.
         # This also re-sets ``self.name``
         super(BaseEnhancedImageFieldFile, self).save(name, content, save)
-        
+
         if settings.THUMBNAILS_DELAYED_GENERATION:
             # Thumbnails will be generated on first access
             return
-        
+
         # Generate all thumbnails
         if self._verify_thumbnail_requirements():
             for identifier, proc_opts in self.field.thumbnails.items():
                 t = ThumbnailFieldFile(self.instance, self.field, self, self.name, identifier, proc_opts)
                 t.save(content)
-    
+
     def delete(self, save=True):
         """Deletes the thumbnails and the source image.
-        
+
         If the files are missing from the storage, no errors are raised.
-        
+
         """
         # First try to delete the thumbnails
         if self._verify_thumbnail_requirements():
             for identifier, proc_opts in self.field.thumbnails.items():
                 t = ThumbnailFieldFile(self.instance, self.field, self, self.name, identifier, proc_opts)
                 t.delete()
-        
+
         # Delete the source file
         super(BaseEnhancedImageFieldFile, self).delete(save)
 
@@ -332,43 +333,43 @@ class EnhancedImageFieldFile(BaseEnhancedImageFieldFile, ImageProcessor):
     Each of the thumbnails that have been specified in the ``thumbnails``
     dictionary are eventually set as attributes of the source image object.
     Each thumbnail's identifier is used as the name of the attribute.
-    
+
     For example, the *avatar* thumbnail of a *photo* field, would be
     accessed as::
-    
+
         photo.avatar
-    
+
     Thumbnails inherit all the attributes of Django's ``ImageFieldFile``
     as described in the `file objects`_ documentation.
-    
+
     .. _`file objects`: http://docs.djangoproject.com/en/1.2/ref/files/file/
-    
+
     For instance, you can do something like the following in your templates::
-    
+
         <img src="{{ photo.avatar.url }}"
             width="{{ photo.avatar.width }}"
             height="{{ photo.avatar.height }}"
             alt='{{ user.name }}' />
-    
+
     """
 
 
 class EnhancedImageField(ImageField):
     """This model field is an enhanced version of Django's ``ImageField``.
-    
+
     *django-thumbnail-works* provides an enhanced version of the default Django's
     ``ImageField``, which supports:
-    
+
     - Processing the original image before it is saved on the remote server.
     - Generating thumbnails of the source image and a mechanism of accessing
       the thumbnails as attributes of the source image.
-    
+
     The ``EnhancedImageField`` derives from the default ``ImageField`` and thus
     all attributes and methods of the default ``ImageField`` are inherited.
-    
+
     In addition to the default arguments, the ``EnhancedImageField`` also
     supports the following:
-    
+
     ``process_source``
         A dictionary of *image processing options*. The same options, that can
         be used for the thumbnail generation, can also be set in this attribute.
@@ -384,9 +385,9 @@ class EnhancedImageField(ImageField):
     ``thumbnails``
         A dictionary of *thumbnail definitions*. The format of each thumbnail
         definition is::
-    
+
             <thumbnail_identifier> : <image_processing_options>
-        
+
         **thumbnail_identifier**
             Is a string that uniquely identifies the thumbnail. It is required
             that all thumbnails use a unique identifier. This identifier is used
@@ -396,7 +397,7 @@ class EnhancedImageField(ImageField):
             This is a dictionary of options that will be used during the thumbnail
             generation. This dictionary must be present on every thumbnail
             definition. Any of the following supported options may be used:
-            
+
             ``size``
                 A string of the format ``WIDTHxHEIGHT`` which represents the
                 size of the generated thumbnail.
@@ -419,12 +420,12 @@ class EnhancedImageField(ImageField):
                 the ``THUMBNAILS_FORMAT`` setting will be used. In case the
                 format is set to ``JPEG``, the value of the ``THUMBNAILS_QUALITY``
                 is used as the quality when the image is saved.
-    
+
     The following code snippet illustrates how to use the ``EnhancedImageField``::
 
         from django.db import models
         from thumbnail_works.fields import EnhancedImageField
-        
+
         class MyModel(models.Model):
             photo = EnhancedImageField(
                 upload_to = 'attachments/images',
@@ -435,10 +436,10 @@ class EnhancedImageField(ImageField):
                     'medium': dict(size='256x192', detail=True),
                 }
             )
-    
+
     """
     attr_class = EnhancedImageFieldFile
-    
+
     def __init__(self, process_source=None, thumbnails={}, **kwargs):
         self.process_source = process_source
         self.thumbnails = thumbnails
