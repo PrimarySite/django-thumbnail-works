@@ -1,17 +1,12 @@
 
 import os
+import io
 
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from StringIO import StringIO
 try:
     from PIL import Image, ImageFilter
 except ImportError:
     import Image
     import ImageFilter
-
-from cropresize import crop_resize
 
 from django.core.files.base import ContentFile
 
@@ -159,9 +154,10 @@ class ImageProcessor:
         # Process
         size = self.proc_opts['size']
         upscale = self.proc_opts['upscale']
-        if size is not None:
-            new_size = get_width_height_from_string(size)
-            im = self._resize(im, new_size, upscale)
+	# TODO
+        # if size is not None:
+        #     new_size = get_width_height_from_string(size)
+        #     im = self._resize(im, new_size, upscale)
         
         sharpen = self.proc_opts['sharpen']
         if sharpen:
@@ -173,7 +169,7 @@ class ImageProcessor:
         
         # Save image data
         format = self.proc_opts['format']
-        buffer = StringIO()
+        buffer = io.BytesIO()
     
         if format == 'JPEG':
             im.save(buffer, format, quality=settings.THUMBNAILS_QUALITY)
@@ -186,8 +182,9 @@ class ImageProcessor:
 
     # Processors
     
-    def _resize(self, im, size, upscale):
-        return crop_resize(im, size, exact_size=upscale)
+    # TODO - BROKEN
+    #def _resize(self, im, size, upscale):
+    #    return crop_resize(im, size, exact_size=upscale)
     
     def _sharpen(self, im):
         return im.filter(ImageFilter.SHARPEN)
