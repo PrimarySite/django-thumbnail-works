@@ -64,6 +64,7 @@ try:
 except ImportError:
     from PIL import Image, ExifTags
 
+
 def crop_resize(image, size, exact_size=False):
     """
     Crop out the proportional middle of the image and set to the desired size.
@@ -76,9 +77,11 @@ def crop_resize(image, size, exact_size=False):
     the image will be returned unmodified.  If the ``exact_size`` flag is true,
     the image will be scaled up to the required size.
     """
+
     assert size[0] or size[1], "Must provide a width or a height"
 
-    size = list(size)
+    original_width, original_height = image.size
+    new_width, new_height = size = list(size)
 
     try:
         for orientation in ExifTags.TAGS.keys():
@@ -92,36 +95,41 @@ def crop_resize(image, size, exact_size=False):
             image = image.rotate(270, expand=True)
         elif exif[orientation] == 8:
             image = image.rotate(90, expand=True)
-    except (AttributeError, KeyError, IndexError):
+    except (AttributeError, KeyError, IndexError) as e:
         pass
 
-    image_ar = image.size[0]/float(image.size[1])
-    crop = size[0] and size[1]
-    if not size[1]:
-        size[1] = int(image.size[1]*size[0]/float(image.size[0]) )
-    if not size[0]:
-        size[0] = int(image.size[0]*size[1]/float(image.size[1]) )
-    size_ar = size[0]/float(size[1])
+    original_aspect_ration = original_width / float(original_height)
 
-    if size[0] > image.size[0]:
-        if size[1] > image.size[1]:
+    # Set crop flag if we have both dimensions
+    crop = new_width and new_height
+
+    if not new_height:
+        new_height = int(original_height * new_width / float(original_width))
+
+    if not new_width:
+        new_width = int(original_width * new_height / float(original_height))
+
+    new_aspect_ratio = new_width / float(new_height)
+
+    if new_width > original_width:
+        if new_height > original_height:
             if not exact_size:
                 return image
         else:
             pass
             # raise NotImplementedError
-    elif size[1] > image.size[1]:
+    elif new_height > original_height:
         pass
 
     if crop:
-        if image_ar > size_ar:
+        if original_aspect_ration > new_aspect_ratio:
             # trim the width
-            xoffset = int(0.5*(image.size[0] - size_ar*image.size[1]))
-            image = image.crop((xoffset, 0, image.size[0]-xoffset, image.size[1]))
-        elif image_ar < size_ar:
+            xoffset = int(0.5 * (original_width - new_aspect_ratio * original_height))
+            image = image.crop((xoffset, 0, original_width-xoffset, original_height))
+        elif original_aspect_ration < new_aspect_ratio:
             # trim the height
-            yoffset = int(0.5*(image.size[1] - image.size[0]/size_ar))
-            image = image.crop((0, yoffset, image.size[0], image.size[1] - yoffset))
+            yoffset = int(0.5 * (original_height - original_width / new_aspect_ratio))
+            image = image.crop((0, yoffset, original_width, original_height - yoffset))
 
     return image.resize(size, Image.ANTIALIAS)
 
