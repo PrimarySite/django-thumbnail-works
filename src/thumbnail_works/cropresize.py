@@ -58,12 +58,13 @@ Keywords: image
 Platform: UNKNOWN
 """
 
+import logging
+
 import sys
 try:
     import Image
 except ImportError:
     from PIL import Image, ExifTags
-
 
 def crop_resize(image, size, exact_size=False):
     """
@@ -77,11 +78,12 @@ def crop_resize(image, size, exact_size=False):
     the image will be returned unmodified.  If the ``exact_size`` flag is true,
     the image will be scaled up to the required size.
     """
+    logger = logging.getLogger(__name__)
+    logger.debug('Called with image={}, size={}, exact_size={}'.format(image, size, exact_size))
 
     assert size[0] or size[1], "Must provide a width or a height"
 
-    original_width, original_height = image.size
-    new_width, new_height = size = list(size)
+    size = list(size)
 
     try:
         for orientation in ExifTags.TAGS.keys():
@@ -91,46 +93,50 @@ def crop_resize(image, size, exact_size=False):
 
         if exif[orientation] == 3:
             image = image.rotate(180, expand=True)
+            logger.debug('EXIF rotate 180.')
         elif exif[orientation] == 6:
             image = image.rotate(270, expand=True)
+            logger.debug('EXIF rotate 270.')
         elif exif[orientation] == 8:
             image = image.rotate(90, expand=True)
-    except (AttributeError, KeyError, IndexError) as e:
-        pass
+            logger.debug('EXIF rotate 90')
+    except (AttributeError, KeyError, IndexError):
+        logger.warn('EXIF Orientation handler error: ', exc_info=True)
 
-    original_aspect_ration = original_width / float(original_height)
+    image_ar = image.size[0]/float(image.size[1])
 
-    # Set crop flag if we have both dimensions
-    crop = new_width and new_height
+    crop = size[0] and size[1]
+    logger.debug('Crop requested? {}'.format(crop))
 
-    if not new_height:
-        new_height = int(original_height * new_width / float(original_width))
+    if not size[1]:
+        size[1] = int(image.size[1]*size[0]/float(image.size[0]) )
+    if not size[0]:
+        size[0] = int(image.size[0]*size[1]/float(image.size[1]) )
+    size_ar = size[0]/float(size[1])
 
-    if not new_width:
-        new_width = int(original_width * new_height / float(original_height))
-
-    new_aspect_ratio = new_width / float(new_height)
-
-    if new_width > original_width:
-        if new_height > original_height:
+    if size[0] > image.size[0]:
+        if size[1] > image.size[1]:
             if not exact_size:
+                logger.debug('Upscale not requested. Return image')
                 return image
+            logger.debug('Upscale requested.')
         else:
             pass
             # raise NotImplementedError
-    elif new_height > original_height:
+    elif size[1] > image.size[1]:
         pass
 
     if crop:
-        if original_aspect_ration > new_aspect_ratio:
+        if image_ar > size_ar:
             # trim the width
-            xoffset = int(0.5 * (original_width - new_aspect_ratio * original_height))
-            image = image.crop((xoffset, 0, original_width-xoffset, original_height))
-        elif original_aspect_ration < new_aspect_ratio:
+            xoffset = int(0.5*(image.size[0] - size_ar*image.size[1]))
+            image = image.crop((xoffset, 0, image.size[0]-xoffset, image.size[1]))
+        elif image_ar < size_ar:
             # trim the height
-            yoffset = int(0.5 * (original_height - original_width / new_aspect_ratio))
-            image = image.crop((0, yoffset, original_width, original_height - yoffset))
+            yoffset = int(0.5*(image.size[1] - image.size[0]/size_ar))
+            image = image.crop((0, yoffset, image.size[0], image.size[1] - yoffset))
 
+    logger.debug('Resize and return image at {}'.format(size))
     return image.resize(size, Image.ANTIALIAS)
 
 def main():
