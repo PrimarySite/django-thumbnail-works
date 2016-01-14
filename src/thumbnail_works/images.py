@@ -1,6 +1,7 @@
 
 import os
 import io
+import logging
 
 try:
     from PIL import Image, ImageFilter
@@ -17,6 +18,8 @@ from thumbnail_works.exceptions import ThumbnailWorksError
 from thumbnail_works.utils import get_width_height_from_string
 from thumbnail_works.cropresize import crop_resize
 
+
+logger = logging.getLogger(__name__)
 
 
 class ImageProcessor:
@@ -110,18 +113,24 @@ class ImageProcessor:
         """
         if not name:
             raise ThumbnailWorksError('The provided name is not usable')
+
         root_dir = os.path.dirname(name)  # images
         filename = os.path.basename(name)    # photo.jpg
         base_filename, default_ext = os.path.splitext(filename)
+
         if force_ext is not None:
             ext = force_ext
+            logger.debug('Forcing file extension: `{}`'.format(ext))
+
         else:
             ext = self.get_image_extension()
             if ext is None:
                 ext = default_ext
+
         if self.identifier is None: # For source images
             image_filename = '%s%s' % (base_filename, ext)
             return os.path.join(root_dir, image_filename)
+
         else:   # For thumbnails
             image_filename = '%s.%s%s' % (base_filename, self.identifier, ext)
             if settings.THUMBNAILS_DIRNAME:
