@@ -78,7 +78,11 @@ class ImageProcessor:
         """
         if not isinstance(self.proc_opts, dict):
             return
-        ext = self.proc_opts['format'].lower()
+
+        ext = self.proc_opts['format']
+        if ext:
+            ext = ext.lower()
+
         if ext == 'jpeg':
             return '.jpg'
         return '.%s' % ext
