@@ -66,6 +66,9 @@ try:
 except ImportError:
     from PIL import Image, ExifTags
 
+logger = logging.getLogger(__name__)
+
+
 def crop_resize(image, size, exact_size=False):
     """
     Crop out the proportional middle of the image and set to the desired size.
@@ -78,7 +81,6 @@ def crop_resize(image, size, exact_size=False):
     the image will be returned unmodified.  If the ``exact_size`` flag is true,
     the image will be scaled up to the required size.
     """
-    logger = logging.getLogger(__name__)
     logger.debug('Called with image={}, size={}, exact_size={}'.format(image, size, exact_size))
 
     assert size[0] or size[1], "Must provide a width or a height"
