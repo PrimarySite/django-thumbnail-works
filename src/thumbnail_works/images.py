@@ -1,6 +1,5 @@
 
 import os
-import imghdr
 import io
 import logging
 
@@ -119,9 +118,6 @@ class ImageProcessor:
         if not name:
             raise ThumbnailWorksError('The provided name is not usable')
 
-        self.file_format_actual = imghdr.what(name)
-        logger.info('Got file_format_actual `{}` for `{}`'.format(self.file_format_actual, name))
-
         root_dir = os.path.dirname(name)  # images
         filename = os.path.basename(name)    # photo.jpg
         base_filename, default_ext = os.path.splitext(filename)
@@ -134,6 +130,8 @@ class ImageProcessor:
             ext = self.get_image_extension()
             if ext is None:
                 ext = default_ext
+
+        self.ext = ext
 
         if self.identifier is None: # For source images
             image_filename = '%s%s' % (base_filename, ext)
@@ -186,11 +184,8 @@ class ImageProcessor:
             im = self._detail(im)
 
         # Save image data
-        format = self.proc_opts['format']
+        format = self.proc_opts['format'] or self.ext
         buffer = io.BytesIO()
-
-        if not format:
-            format = self.file_format_actual.upper()
 
         if format == 'JPEG':
             im.save(buffer, format, quality=settings.THUMBNAILS_QUALITY)
