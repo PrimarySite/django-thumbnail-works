@@ -185,7 +185,9 @@ class ImageProcessor:
         format = self.proc_opts['format']
         buffer = io.BytesIO()
 
-        if format == 'JPEG':
+        if not format:
+            im.save(buffer)
+        elif format == 'JPEG':
             im.save(buffer, format, quality=settings.THUMBNAILS_QUALITY)
         else:
             im.save(buffer, format)
