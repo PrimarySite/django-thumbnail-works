@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Standard Library
-import collections
+import os
 import io
 import logging
-import os
 
 try:
     from PIL import Image, ImageFilter
@@ -23,9 +21,6 @@ from thumbnail_works.cropresize import crop_resize
 
 
 logger = logging.getLogger(__name__)
-
-
-FileParts = collections.namedtuple('FileParts', 'path name extension')
 
 
 class ImageProcessor:
@@ -121,29 +116,33 @@ class ImageProcessor:
           - thumbnail: images/<THUMBNAILS_DIRNAME>/photo.<identifier>.<extension>
 
         """
-
-        def get_new_path():
-            if not settings.THUMBNAILS_DIRNAME:
-                return self.original.path
-            return os.path.join(self.original.path, settings.THUMBNAILS_DIRNAME)
-
-        def get_new_filename():
-            return '{}.{}{}'.format(
-                self.original.name, self.identifier, self.original.extension)
-
         if not name:
             raise ThumbnailWorksError('The provided name is not usable')
 
-        # Return full file path unchanged if this is the source image.
-        if not self.identifier:
-            return name
-
-        # Get the component parts of the file name received.
         root_dir = os.path.dirname(name)  # images
         filename = os.path.basename(name)    # photo.jpg
-        self.original  = FileParts(root_dir, *os.path.splitext(filename))
+        base_filename, default_ext = os.path.splitext(filename)
 
-        return os.path.join(get_new_path(), get_new_filename())
+        if force_ext is not None:
+            ext = force_ext
+            logger.debug('Forcing file extension: `{}`'.format(ext))
+
+        else:
+            ext = self.get_image_extension()
+            if ext is None:
+                ext = default_ext
+
+        self.ext = ext
+
+        if self.identifier is None: # For source images
+            image_filename = '%s%s' % (base_filename, ext)
+            return os.path.join(root_dir, image_filename)
+
+        else:   # For thumbnails
+            image_filename = '%s.%s%s' % (base_filename, self.identifier, ext)
+            if settings.THUMBNAILS_DIRNAME:
+                return os.path.join(root_dir, settings.THUMBNAILS_DIRNAME, image_filename)
+            return os.path.join(root_dir, image_filename)
 
     def get_image_content(self):
         """Returns the image data as a ContentFile."""
@@ -186,13 +185,13 @@ class ImageProcessor:
             im = self._detail(im)
 
         # Save image data
+        format = self.proc_opts['format'] or self.ext
         buffer = io.BytesIO()
 
-        if self.original.extension.lower() in ['.jpg', '.jpeg']:
-            im.save(buffer, 'JPEG', quality=settings.THUMBNAILS_QUALITY)
-
+        if format == 'JPEG':
+            im.save(buffer, format, quality=settings.THUMBNAILS_QUALITY)
         else:
-            im.save(buffer, self.original.extension.upper().strip('.'))
+            im.save(buffer, format)
 
         data = buffer.getvalue()
 
@@ -208,3 +207,4 @@ class ImageProcessor:
 
     def _detail(self, im):
         return im.filter(ImageFilter.DETAIL)
+
