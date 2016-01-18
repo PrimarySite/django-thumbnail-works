@@ -211,8 +211,7 @@ class BaseEnhancedImageFieldFile(ImageFieldFile):
         if self._verify_thumbnail_requirements():
             for identifier, proc_opts in self.field.thumbnails.items():
                 t = ThumbnailFieldFile(self.instance, self.field, self, self.name, identifier, proc_opts)
-                if self.storage.exists(t.name):
-                    setattr(self, identifier, t)
+                setattr(self, identifier, t)
 
     def _verify_thumbnail_requirements(self):
         """This function performs a series of checks to ensure flawless
@@ -244,7 +243,7 @@ class BaseEnhancedImageFieldFile(ImageFieldFile):
             if self._verify_thumbnail_requirements():
                 proc_opts = self.field.thumbnails[attribute]
                 t = ThumbnailFieldFile(self.instance, self.field, self, self.name, attribute, proc_opts)
-                t.save()
+                # t.save()
                 assert self.__dict__[attribute] == t, Exception(
                     'Thumbnail attributes `{}` not set'.format(attribute))
         return getattr(self, attribute)
@@ -265,7 +264,7 @@ class BaseEnhancedImageFieldFile(ImageFieldFile):
             for attribute in self.field.thumbnails.keys():
                 proc_opts = self.field.thumbnails[attribute]
                 t = ThumbnailFieldFile(self.instance, self.field, self, self.name, attribute, proc_opts)
-                t.save()
+                # t.save()
                 assert self.__dict__[attribute] == t, Exception(
                     'Thumbnail attributes `{}` not set'.format(attribute))
                 setattr(self._thumbnails_cache, attribute, t)
