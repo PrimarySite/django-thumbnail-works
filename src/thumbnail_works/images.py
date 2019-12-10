@@ -161,6 +161,8 @@ class ImageProcessor:
 
         # Image.open() accepts a file-like object, but it is needed
         # to rewind it back to be able to get the data,
+        if content.closed:
+            content = self.source.get_image_content()
         content.seek(0)
         im = Image.open(content)
 
